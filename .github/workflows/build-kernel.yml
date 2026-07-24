@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - android-5.1.1 # Menambahkan branch Anda agar otomatis terbaca
 
 env:
   DEFCONFIG_NAME: j1acevelte_defconfig
@@ -14,80 +15,60 @@ env:
 jobs:
   build:
     name: Compile Kernel
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04 # <-- INI KUNCI FIX-NYA (Diganti ke versi server yang tersedia)
 
     steps:
     - name: 1. Checkout Kernel Source
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # Diperbarui ke v4 (standar terbaru GitHub)
       with:
         path: kernel-source
 
     - name: 2. Install Dependencies (Bahan Bangunan)
       run: |
         sudo apt-get update
-        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32ncurses5-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool xsltproc zip zlib1g-dev python2
-        sudo apt-get install -y libssl-dev
+        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32ncurses5-dev lib32z1-dev liblz4-tool libncurses5 libncurses-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool xsltproc zip zlib1g-dev python2 python-is-python3
 
     - name: 3. Download Toolchain (GCC 4.9 untuk Kernel Jadul)
       run: |
-        # Menggunakan GCC 4.9 dari LineageOS yang terbukti stabil untuk kernel lama
         git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-eabi-4.9.git toolchain
 
     - name: 4. Auto-Patch Fixer (Trik Anti-Gagal)
       run: |
         cd kernel-source
-        
         echo "Menjalankan perbaikan otomatis untuk kernel lawas..."
         
-        # FIX 1: Memperbaiki error Perl di timeconst.pl (Pasti terjadi di kernel lama)
         if [ -f kernel/timeconst.pl ]; then
           sed -i 's/if (!defined(@val))/if (!@val)/g' kernel/timeconst.pl
-          echo "Fix 1 (timeconst) diterapkan!"
         fi
         
-        # FIX 2: Memperbaiki error Bison (Multiple definition of yylloc)
         if [ -f scripts/dtc/dtc-lexer.lex.c_shipped ]; then
           sed -i 's/^YYLTYPE yylloc;/extern YYLTYPE yylloc;/g' scripts/dtc/dtc-lexer.lex.c_shipped
-          echo "Fix 2 (yylloc) diterapkan!"
         fi
         
-        # FIX 3: Memaksa Compiler mengabaikan peringatan agar tidak dianggap error
         sed -i 's/-Werror//g' Makefile
-        echo "Fix 3 (Werror dihapus) diterapkan!"
-        
-        # FIX 4: Menonaktifkan proteksi stack yang kadang bentrok di GCC 4.9
         sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm/configs/$DEFCONFIG_NAME
 
     - name: 5. Mulai Compile Kernel
       run: |
         cd kernel-source
-        
-        # Set jalur compiler
         export CROSS_COMPILE=$GITHUB_WORKSPACE/toolchain/bin/arm-eabi-
         export ARCH=arm
         export SUBARCH=arm
-        
-        # Identitas pembuat kernel
         export KBUILD_BUILD_USER="Icsriyand"
         export KBUILD_BUILD_HOST="GitHub-Actions"
         
-        # Bersihkan sisa-sisa file
         make clean && make mrproper
-        
-        # Terapkan konfigurasi J1 Ace
         make $DEFCONFIG_NAME
-        
-        # Gas compile dengan seluruh core CPU server GitHub (biasanya 2 core)
         make -j$(nproc)
 
     - name: 6. Upload Hasil Kernel (zImage)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4 # Diperbarui ke v4
       with:
         name: zImage-J1-Ace
         path: kernel-source/arch/arm/boot/zImage
         
-    - name: 7. Upload Hasil Modul WiFi/Driver (.ko) - (Jika Ada)
-      uses: actions/upload-artifact@v3
+    - name: 7. Upload Hasil Modul WiFi/Driver (.ko)
+      uses: actions/upload-artifact@v4 # Diperbarui ke v4
       with:
         name: Modules-J1-Ace
         path: kernel-source/drivers/**/*.ko
