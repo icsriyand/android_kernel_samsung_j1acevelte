@@ -540,7 +540,7 @@ CONFIG_ATAGS=y
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
 # CONFIG_ARM_APPENDED_DTB is not set
-CONFIG_CMDLINE="root=/dev/ram0 rw initrd=0x80e00000,0x1f243f console=ttyS1,115200n8 init=/init mem=128M androidboot.selinux=permissive"
+CONFIG_CMDLINE="console=ttyS1,115200n8 androidboot.selinux=permissive"
 CONFIG_CMDLINE_FORCE=y
 CONFIG_CMDLINE_FROM_BOOTLOADER=n
 # CONFIG_CMDLINE_EXTEND is not set
