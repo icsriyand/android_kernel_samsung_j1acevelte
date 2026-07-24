@@ -23,20 +23,23 @@ jobs:
       with:
         path: kernel-source
 
-    - name: 2. Install Dependencies (Bahan Bangunan)
+    - name: 2. Install Dependencies & 32-bit Library
       run: |
+        sudo dpkg --add-architecture i386
         sudo apt-get update
-        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32ncurses5-dev lib32z1-dev liblz4-tool libncurses5 libncurses-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool xsltproc zip zlib1g-dev python2 python-is-python3
+        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32ncurses5-dev lib32z1-dev liblz4-tool libncurses5 libncurses-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool xsltproc zip zlib1g-dev python2 libc6:i386 libncurses5:i386 libstdc++6:i386
+        # Memaksa agar default 'python' menggunakan python2 (wajib untuk kernel lama)
+        sudo ln -sf /usr/bin/python2 /usr/bin/python
 
-    - name: 3. Download Toolchain (GCC 4.9 Resmi Google)
+    - name: 3. Download Toolchain (GCC 4.9 LineageOS Terjamin)
       run: |
-        # Menggunakan jalur arm-linux-androideabi-4.9 yang 100% terbukti aktif
-        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 toolchain
+        # Menggunakan spesifik branch lineage-18.1 yang foldernya terjamin utuh
+        git clone --depth=1 -b lineage-18.1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git toolchain
 
     - name: 4. Auto-Patch Fixer (Trik Anti-Gagal)
       run: |
         cd kernel-source
-        echo "Menjalankan perbaikan otomatis untuk kernel lawas..."
+        echo "Menjalankan perbaikan otomatis..."
         
         if [ -f kernel/timeconst.pl ]; then
           sed -i 's/if (!defined(@val))/if (!@val)/g' kernel/timeconst.pl
@@ -53,15 +56,18 @@ jobs:
       run: |
         cd kernel-source
         
-        # PERUBAHAN DISINI: Menggunakan arm-linux-androideabi-
         export CROSS_COMPILE=$GITHUB_WORKSPACE/toolchain/bin/arm-linux-androideabi-
         export ARCH=arm
         export SUBARCH=arm
         export KBUILD_BUILD_USER="Icsriyand"
         export KBUILD_BUILD_HOST="GitHub-Actions"
         
-        make clean && make mrproper
+        # NOTE: 'make clean' dan 'make mrproper' DIHAPUS agar tidak memicu error folder focaltech
+        
+        # Load konfigurasi J1 Ace
         make $DEFCONFIG_NAME
+        
+        # Mulai proses compile inti
         make -j$(nproc)
 
     - name: 6. Upload Hasil Kernel (zImage)
