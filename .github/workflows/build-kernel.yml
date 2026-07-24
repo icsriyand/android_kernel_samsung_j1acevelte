@@ -1,4 +1,4 @@
-name: Build Kernel J1 Ace (Anti-Gagal)
+name: Build Kernel J1 Ace (Auto-Release)
 
 on:
   workflow_dispatch:
@@ -6,6 +6,10 @@ on:
     branches:
       - master
       - android-5.1.1
+
+# Memberikan izin kepada robot GitHub untuk membuat halaman Release
+permissions:
+  contents: write
 
 env:
   DEFCONFIG_NAME: j1acevelte_defconfig
@@ -39,23 +43,17 @@ jobs:
         cd kernel-source
         echo "Menjalankan perbaikan otomatis tingkat lanjut..."
         
-        # Fix 1: Perl error
         if [ -f kernel/timeconst.pl ]; then
           sed -i 's/if (!defined(@val))/if (!@val)/g' kernel/timeconst.pl
         fi
         
-        # Fix 2: Bison error
         if [ -f scripts/dtc/dtc-lexer.lex.c_shipped ]; then
           sed -i 's/^YYLTYPE yylloc;/extern YYLTYPE yylloc;/g' scripts/dtc/dtc-lexer.lex.c_shipped
         fi
         
-        # Fix 3: Hapus semua aturan ketat -Werror di SELURUH Makefile (Sapu Jagat)
         find . -type f -name "Makefile" -exec sed -i 's/-Werror//g' {} +
-        
-        # Fix 4: Perbaiki Typo dari Samsung (-implicit-function-declaration) di SELURUH file
         find . -type f -name "Makefile" -exec sed -i 's/-implicit-function-declaration/-Wno-implicit-function-declaration/g' {} +
         
-        # Fix 5: Matikan proteksi stack bawaan
         sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm/configs/$DEFCONFIG_NAME
 
     - name: 5. Mulai Compile Kernel
@@ -71,14 +69,31 @@ jobs:
         make $DEFCONFIG_NAME
         make -j$(nproc)
 
-    - name: 6. Upload Hasil Kernel (zImage)
-      uses: actions/upload-artifact@v4
-      with:
-        name: zImage-J1-Ace
-        path: kernel-source/arch/arm/boot/zImage
+    - name: 6. Kumpulkan File Hasil Build
+      run: |
+        # Buat folder penampungan bernama 'Output-Kernel'
+        mkdir -p Output-Kernel
         
-    - name: 7. Upload Hasil Modul WiFi/Driver (.ko)
-      uses: actions/upload-artifact@v4
+        # Copy file utama zImage ke folder tersebut
+        cp kernel-source/arch/arm/boot/zImage Output-Kernel/
+        
+        # Cari semua file modul (.ko) dan satukan ke folder tersebut
+        find kernel-source/drivers -type f -name "*.ko" -exec cp {} Output-Kernel/ \;
+        
+        # Masuk ke folder dan jadikan file .zip
+        cd Output-Kernel
+        zip -r9 ../Kernel-J1-Ace-Build.zip *
+
+    - name: 7. Dapatkan Tanggal & Jam untuk Tag
+      run: echo "BUILD_DATE=$(date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
+
+    - name: 8. Upload ke GitHub Releases
+      uses: softprops/action-gh-release@v2
       with:
-        name: Modules-J1-Ace
-        path: kernel-source/drivers/**/*.ko
+        tag_name: Build-${{ env.BUILD_DATE }}
+        name: Kernel J1 Ace [Build ${{ env.BUILD_DATE }}]
+        body: |
+          **Hasil Build Otomatis Kernel Samsung J1 Ace**
+          
+          Di dalam file ZIP ini sudah terdapat file `zImage` dan modul driver `.ko`.
+        files: Kernel-J1-Ace-Build.zip
