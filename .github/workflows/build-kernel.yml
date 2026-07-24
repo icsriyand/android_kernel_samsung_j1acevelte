@@ -34,9 +34,9 @@ jobs:
         sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32ncurses5-dev lib32z1-dev liblz4-tool libncurses5 libncurses-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool xsltproc zip zlib1g-dev python2 libc6:i386 libncurses5:i386 libstdc++6:i386
         sudo ln -sf /usr/bin/python2 /usr/bin/python
 
-    - name: 3. Download Toolchain (GCC 4.9 Android Standar)
+    - name: 3. Download Toolchain (GCC 4.9 LineageOS - Diperbaiki)
       run: |
-        git clone --depth=1 https://github.com toolchain
+        git clone --depth=1 -b lineage-19.1 https://github.com toolchain
 
     - name: 4. Auto-Patch Fixer & Matikan Keamanan Samsung
       run: |
