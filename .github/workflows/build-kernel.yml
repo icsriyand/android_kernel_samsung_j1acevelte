@@ -36,9 +36,9 @@ jobs:
 
     - name: 3. Download Toolchain (GCC 4.9 LineageOS Terjamin)
       run: |
-        git clone --depth=1 -b lineage-18.1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git toolchain
+        git clone --depth=1 -b lineage-18.1 https://github.com toolchain
 
-    - name: 4. Auto-Patch Fixer (Trik Sapu Jagat)
+    - name: 4. Auto-Patch Fixer & Matikan Keamanan Samsung
       run: |
         cd kernel-source
         echo "Menjalankan perbaikan otomatis tingkat lanjut..."
@@ -55,6 +55,20 @@ jobs:
         find . -type f -name "Makefile" -exec sed -i 's/-implicit-function-declaration/-Wno-implicit-function-declaration/g' {} +
         
         sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm/configs/$DEFCONFIG_NAME
+        
+        # --- MENGAUR PARAMETER SELINUX & MATIKAN KEAMANAN SAMSUNG ---
+        echo "Menghapus proteksi Knox, TIMA, dan memaksa status Permissive di defconfig..."
+        
+        # Izinkan modifikasi SELinux via boot argument (cmdline)
+        sed -i 's/CONFIG_SECURITY_SELINUX_DEVELOP=y/CONFIG_SECURITY_SELINUX_DEVELOP=y\nCONFIG_SECURITY_SELINUX_BOOTPARAM=y/g' arch/arm/configs/$DEFCONFIG_NAME
+        
+        # Matikan fitur pemaksaan Enforcing bawaan kernel
+        sed -i 's/CONFIG_SECURITY_SELINUX_ENFORCE=y/CONFIG_SECURITY_SELINUX_ENFORCE=n/g' arch/arm/configs/$DEFCONFIG_NAME
+        
+        # Nonaktifkan Knox, TIMA, dan RKP Keamanan Samsung
+        sed -i 's/CONFIG_TIMA=y/CONFIG_TIMA=n/g' arch/arm/configs/$DEFCONFIG_NAME
+        sed -i 's/CONFIG_KNOX_KAP=y/CONFIG_KNOX_KAP=n/g' arch/arm/configs/$DEFCONFIG_NAME
+        sed -i 's/CONFIG_SECURITY_TIMA=y/CONFIG_SECURITY_TIMA=n/g' arch/arm/configs/$DEFCONFIG_NAME
 
     - name: 5. Mulai Compile Kernel
       run: |
@@ -69,20 +83,37 @@ jobs:
         make $DEFCONFIG_NAME
         make -j$(nproc)
 
-    - name: 6. Kumpulkan File Hasil Build
+    - name: 6. Kemas Hasil Build dengan AnyKernel3 & Set Permissive
       run: |
-        # Buat folder penampungan bernama 'Output-Kernel'
-        mkdir -p Output-Kernel
+        # Unduh AnyKernel3 dari repositori resmi osm0sis
+        git clone --depth=1 https://github.com AnyKernel3
         
-        # Copy file utama zImage ke folder tersebut
-        cp kernel-source/arch/arm/boot/zImage Output-Kernel/
+        # Bersihkan berkas templat bawaan yang tidak terpakai
+        rm -f AnyKernel3/README.md AnyKernel3/zImage AnyKernel3/Image.gz-dtb
         
-        # Cari semua file modul (.ko) dan satukan ke folder tersebut
-        find kernel-source/drivers -type f -name "*.ko" -exec cp {} Output-Kernel/ \;
+        # Salin file kernel utama (zImage) ke root folder AnyKernel3
+        cp kernel-source/arch/arm/boot/zImage AnyKernel3/
         
-        # Masuk ke folder dan jadikan file .zip
-        cd Output-Kernel
-        zip -r9 ../Kernel-J1-Ace-Build.zip *
+        # Buat struktur direktori modul driver Android dan salin semua berkas .ko
+        mkdir -p AnyKernel3/modules/system/lib/modules
+        find kernel-source/drivers -type f -name "*.ko" -exec cp {} AnyKernel3/modules/system/lib/modules/ \;
+        
+        # Masuk ke direktori kerja AnyKernel3 untuk konfigurasi skrip
+        cd AnyKernel3
+        
+        # Modifikasi properti internal anykernel.sh untuk kompatibilitas J1 Ace
+        sed -i 's/block=\/dev\/block\/bootdevice\/by-name\/boot;/block=auto;/g' anykernel.sh
+        sed -i 's/is_slot_device=0;/is_slot_device=auto;/g' anykernel.sh
+        
+        # --- SUNTIK PARAMETER CMDLINE UNTUK MEMAKSA SELINUX PERMISSIVE ---
+        sed -i 's/cmdline=/cmdline=androidboot.selinux=permissive/g' anykernel.sh
+        
+        # Kompres seluruh struktur direktori menjadi berkas flashable zip siap pakai
+        ZIP_NAME="AnyKernel3-J1-Ace-Permissive-$(date +'%Y%m%d_%H%M').zip"
+        zip -r9 "../$ZIP_NAME" * -x .git*
+        
+        # Ekspor nama berkas zip ke environment variable GitHub Actions
+        echo "KERNEL_ZIP=$ZIP_NAME" >> $GITHUB_ENV
 
     - name: 7. Dapatkan Tanggal & Jam untuk Tag
       run: echo "BUILD_DATE=$(date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
@@ -93,7 +124,10 @@ jobs:
         tag_name: Build-${{ env.BUILD_DATE }}
         name: Kernel J1 Ace [Build ${{ env.BUILD_DATE }}]
         body: |
-          **Hasil Build Otomatis Kernel Samsung J1 Ace**
+          **Hasil Build Otomatis Flashable Zip Kernel Samsung J1 Ace**
           
-          Di dalam file ZIP ini sudah terdapat file `zImage` dan modul driver `.ko`.
-        files: Kernel-J1-Ace-Build.zip
+          - **Status**: Sukses Terkompilasi via GitHub Actions
+          - **Keamanan**: SELinux Permissive / Knox Disabled (Bypass Bootloop)
+          - **Engine Pengemas**: AnyKernel3 (Flashable Zip)
+          - **Isi Berkas**: File biner `zImage` dan modul driver perangkat (.ko) terintegrasi otomatis.
+        files: ${{ env.KERNEL_ZIP }}
