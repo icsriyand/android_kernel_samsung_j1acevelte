@@ -34,9 +34,9 @@ jobs:
         sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf lib32ncurses5-dev lib32z1-dev liblz4-tool libncurses5 libncurses-dev libssl-dev libxml2 libxml2-utils lzop rsync schedtool xsltproc zip zlib1g-dev python2 libc6:i386 libncurses5:i386 libstdc++6:i386
         sudo ln -sf /usr/bin/python2 /usr/bin/python
 
-    - name: 3. Download Toolchain (GCC 4.9 LineageOS Terjamin)
+    - name: 3. Download Toolchain (GCC 4.9 Android Standar)
       run: |
-        git clone --depth=1 -b lineage-18.1 https://github.com toolchain
+        git clone --depth=1 https://github.com toolchain
 
     - name: 4. Auto-Patch Fixer & Matikan Keamanan Samsung
       run: |
@@ -56,7 +56,7 @@ jobs:
         
         sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm/configs/$DEFCONFIG_NAME
         
-        # --- MENGAUR PARAMETER SELINUX & MATIKAN KEAMANAN SAMSUNG ---
+        # --- MENGATUR PARAMETER SELINUX & MATIKAN KEAMANAN SAMSUNG ---
         echo "Menghapus proteksi Knox, TIMA, dan memaksa status Permissive di defconfig..."
         
         # Izinkan modifikasi SELinux via boot argument (cmdline)
