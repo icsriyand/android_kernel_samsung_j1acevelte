@@ -30,8 +30,8 @@ jobs:
 
     - name: 3. Download Toolchain (GCC 4.9 Resmi Google)
       run: |
-        # Menggunakan sumber resmi dari Google AOSP yang dijamin aman dan ada
-        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-eabi-4.9 toolchain
+        # Menggunakan jalur arm-linux-androideabi-4.9 yang 100% terbukti aktif
+        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 toolchain
 
     - name: 4. Auto-Patch Fixer (Trik Anti-Gagal)
       run: |
@@ -52,7 +52,9 @@ jobs:
     - name: 5. Mulai Compile Kernel
       run: |
         cd kernel-source
-        export CROSS_COMPILE=$GITHUB_WORKSPACE/toolchain/bin/arm-eabi-
+        
+        # PERUBAHAN DISINI: Menggunakan arm-linux-androideabi-
+        export CROSS_COMPILE=$GITHUB_WORKSPACE/toolchain/bin/arm-linux-androideabi-
         export ARCH=arm
         export SUBARCH=arm
         export KBUILD_BUILD_USER="Icsriyand"
